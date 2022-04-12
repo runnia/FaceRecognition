@@ -1,0 +1,146 @@
+from random import randint
+from tkinter import *
+from tkinter import filedialog
+from tkinter.ttk import Combobox
+ 
+import cv2 as cv
+from PIL import Image, ImageTk
+from sklearn.datasets import fetch_olivetti_faces
+ 
+ 
+def download_photo():
+    global chosen_image
+    global is_randomly
+    is_randomly = 0
+    image_path = filedialog.askopenfilename()
+    chosen_image = cv.imread(image_path, 0)
+ 
+def download_template():
+    global chosen_template
+    template_path = filedialog.askopenfilename()
+    chosen_template = cv.imread(template_path, 0)
+ 
+ 
+ 
+def get_from_dataset():
+    global is_randomly
+    global rand_image
+    global rand_template
+    is_randomly = 1
+    faces = fetch_olivetti_faces()
+    faces = faces.images
+    img_idx = randint(0, len(faces) - 1)
+    temp_idx = randint(0, len(faces) - 1)
+    rand_image = faces[img_idx] * 255
+    rand_template = faces[temp_idx] * 255
+    rand_template = rand_template[7:45, 7:45]
+ 
+def clear():
+    label.destroy()
+    label2.destroy()
+    text1.destroy()
+    text2.destroy()
+ 
+ 
+def matchingTemplateDetector():
+    global label
+    global label2
+    global text1
+    global text2
+    m = method_name.get()
+    if is_randomly == 1:
+        image = rand_image.copy()
+        template = rand_template.copy()
+    else:
+        image = chosen_image
+        template = chosen_template
+    method = eval("cv." + m)
+    width, height = template.shape[::-1]
+ 
+    res = cv.matchTemplate(image, template, method)
+    min_val, max_val, min_loc, max_loc = cv.minMaxLoc(res)
+ 
+    if method in [cv.TM_SQDIFF, cv.TM_SQDIFF_NORMED]:
+        top_left = min_loc
+    else:
+        top_left = max_loc
+    bottom_right = (top_left[0] + width, top_left[1] + height)
+ 
+    image = cv.rectangle(image, top_left, bottom_right, 0, 1)
+ 
+    image = Image.fromarray(image)
+    template = Image.fromarray(template)
+ 
+    width, height = image.size
+    widthtemp, heighttemp = template.size
+ 
+    if is_randomly == 0:
+        image = image.resize((width // 2, height // 2), Image.ANTIALIAS)
+        template = template.resize((widthtemp // 2, heighttemp // 2), Image.ANTIALIAS)
+    else:
+        image = image.resize((300, 300), Image.ANTIALIAS)
+        template = template.resize((300, 300), Image.ANTIALIAS)
+ 
+    text3 = Label(window, text="                       ")
+    text3.grid(row=4, column=2)
+    text4 = Label(window, text="                       ")
+    text4.grid(row=4, column=4)
+    text3 = Label(window, text="                       ")
+    text3.grid(row=5, column=2)
+    text4 = Label(window, text="                       ")
+    text4.grid(row=5, column=4)
+ 
+    text1 = Label(window, text="Result")
+    text1.grid(row=6, column=4)
+    text2 = Label(window, text="Template")
+    text2.grid(row=6, column=2)
+ 
+    photo = ImageTk.PhotoImage(image)
+    label = Label(window, image=photo)
+    label.image = photo
+    label.grid(row=7, column=4)
+ 
+    temp_photo = ImageTk.PhotoImage(template)
+    label2 = Label(window, image=temp_photo)
+    label2.image = temp_photo
+    label2.grid(row=7, column=2)
+ 
+ 
+window = Tk()
+window.title("Template Matching Detector")
+window.geometry("1400x800")
+ 
+lbl = Label(window, text="Choose method")
+lbl.grid(column=4, row=0)
+ 
+method_name = StringVar()
+ 
+button1 = Button(window, text="Images from dataset", command=get_from_dataset, width=20)
+button1.grid(column=0, row=1)
+ 
+button2 = Button(window, text="Download template", command=download_template, width=20)
+button2.grid(column=1, row=1)
+ 
+button3 = Button(window, text="Download photo", command=download_photo, width=20)
+button3.grid(column=2, row=1)
+ 
+combo = Combobox(window, textvariable=method_name)
+combo["values"] = (
+    "TM_CCOEFF",
+    "TM_CCOEFF_NORMED",
+    "TM_CCORR",
+    "TM_CCORR_NORMED",
+    "TM_SQDIFF",
+    "TM_SQDIFF_NORMED",
+)
+combo.current(0)
+combo.grid(column=4, row=1)
+ 
+button4 = Button(window, text="Go", command=matchingTemplateDetector, width=20)
+button4.grid(column=6, row=1)
+ 
+ 
+button5 = Button(window, text="Clear", command=clear, width=20)
+button5.grid(column=5, row=1)
+ 
+window.mainloop()
